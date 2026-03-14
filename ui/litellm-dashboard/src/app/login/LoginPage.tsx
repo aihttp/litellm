@@ -85,7 +85,7 @@ function LoginPageContent() {
     }
 
     loginMutation.mutate(
-      { username, password },
+      { username, password, useV3: !!selectedWorker },
       {
         onSuccess: (data) => {
           // Update the worker context with the selected worker

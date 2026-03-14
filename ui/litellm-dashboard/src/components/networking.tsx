@@ -9030,6 +9030,7 @@ export const deriveErrorMessage = (errorData: any): string => {
 export interface LoginRequest {
   username: string;
   password: string;
+  useV3?: boolean;
 }
 
 interface LoginResponse {
@@ -9037,9 +9038,10 @@ interface LoginResponse {
   token?: string;
 }
 
-export const loginCall = async (username: string, password: string): Promise<LoginResponse> => {
+export const loginCall = async (username: string, password: string, useV3?: boolean): Promise<LoginResponse> => {
   const proxyBaseUrl = getProxyBaseUrl();
-  const loginUrl = proxyBaseUrl ? `${proxyBaseUrl}/v2/login` : "/v2/login";
+  const loginPath = useV3 ? "/v3/login" : "/v2/login";
+  const loginUrl = proxyBaseUrl ? `${proxyBaseUrl}${loginPath}` : loginPath;
 
   const body = JSON.stringify({
     username,

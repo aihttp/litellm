@@ -41,6 +41,17 @@ vi.mock("@/app/(dashboard)/hooks/login/useLogin", () => ({
   })),
 }));
 
+vi.mock("@/contexts/WorkerContext", () => ({
+  useWorker: vi.fn(() => ({
+    isControlPlane: false,
+    workers: [],
+    selectedWorkerId: null,
+    selectedWorker: null,
+    selectWorker: vi.fn(),
+    disconnectFromWorker: vi.fn(),
+  })),
+}));
+
 import { useUIConfig } from "@/app/(dashboard)/hooks/uiConfig/useUIConfig";
 import { getCookie } from "@/utils/cookieUtils";
 import { isJwtExpired } from "@/utils/jwtUtils";
