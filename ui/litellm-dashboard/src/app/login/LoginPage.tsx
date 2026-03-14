@@ -3,14 +3,15 @@
 import { useLogin } from "@/app/(dashboard)/hooks/login/useLogin";
 import { useUIConfig } from "@/app/(dashboard)/hooks/uiConfig/useUIConfig";
 import LoadingScreen from "@/components/common_components/LoadingScreen";
-import { getProxyBaseUrl } from "@/components/networking";
-import { getCookie } from "@/utils/cookieUtils";
+import { getProxyBaseUrl, switchToWorkerUrl } from "@/components/networking";
+import { clearTokenCookies, getCookie } from "@/utils/cookieUtils";
 import { isJwtExpired } from "@/utils/jwtUtils";
 import { consumeReturnUrl, getReturnUrl, isValidReturnUrl } from "@/utils/returnUrlUtils";
-import { InfoCircleOutlined } from "@ant-design/icons";
-import { Alert, Button, Card, Form, Input, Popover, Space, Typography } from "antd";
+import { InfoCircleOutlined, CloudServerOutlined } from "@ant-design/icons";
+import { Alert, Button, Card, Form, Input, Popover, Select, Space, Typography } from "antd";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useWorker } from "@/contexts/WorkerContext";
 
 function LoginPageContent() {
   const [username, setUsername] = useState("");
@@ -19,6 +20,17 @@ function LoginPageContent() {
   const { data: uiConfig, isLoading: isConfigLoading } = useUIConfig();
   const loginMutation = useLogin();
   const router = useRouter();
+  const { workers, selectWorker } = useWorker();
+  const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
+
+  // Pre-select worker from URL param (e.g. /ui/login?worker=team-b)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const workerParam = params.get("worker");
+    if (workerParam) {
+      setSelectedWorkerId(workerParam);
+    }
+  }, []);
 
   useEffect(() => {
     if (isConfigLoading) {
@@ -27,6 +39,14 @@ function LoginPageContent() {
 
     // Check if admin UI is disabled
     if (uiConfig && uiConfig.admin_ui_disabled) {
+      setIsLoading(false);
+      return;
+    }
+
+    // If switching workers on a control plane, clear the old token and show login
+    const switchingWorker = new URLSearchParams(window.location.search).has("worker");
+    if (switchingWorker && uiConfig?.is_control_plane) {
+      clearTokenCookies();
       setIsLoading(false);
       return;
     }
@@ -58,16 +78,35 @@ function LoginPageContent() {
   }, [isConfigLoading, router, uiConfig]);
 
   const handleSubmit = () => {
+    // If a worker is selected, point proxyBaseUrl at it before login
+    const selectedWorker = workers.find((w) => w.worker_id === selectedWorkerId);
+    if (selectedWorker) {
+      switchToWorkerUrl(selectedWorker.url);
+    }
+
     loginMutation.mutate(
       { username, password },
       {
         onSuccess: (data) => {
-          // Check if we have a return URL to use instead of the default redirect
-          const returnUrl = consumeReturnUrl();
-          if (returnUrl) {
-            router.push(returnUrl);
+          // Update the worker context with the selected worker
+          if (selectedWorker) {
+            selectWorker(selectedWorker.worker_id);
+            // Stay on the CP's UI — proxyBaseUrl already points at the worker
+            router.push("/ui/?login=success");
           } else {
-            router.push(data.redirect_url);
+            // Normal (non-control-plane) login — follow the server's redirect
+            const returnUrl = consumeReturnUrl();
+            if (returnUrl) {
+              router.push(returnUrl);
+            } else {
+              router.push(data.redirect_url);
+            }
+          }
+        },
+        onError: () => {
+          // Reset proxyBaseUrl on login failure
+          if (selectedWorker) {
+            switchToWorkerUrl(null);
           }
         },
       },
@@ -154,6 +193,22 @@ function LoginPageContent() {
           {error && <Alert message={error} type="error" showIcon />}
 
           <Form onFinish={handleSubmit} layout="vertical" requiredMark={true}>
+            {uiConfig?.is_control_plane && workers.length > 0 && (
+              <Form.Item label="Worker" style={{ marginBottom: 16 }}>
+                <Select
+                  value={selectedWorkerId || undefined}
+                  onChange={(value) => setSelectedWorkerId(value)}
+                  placeholder="Choose a worker to connect to"
+                  size="large"
+                  suffixIcon={<CloudServerOutlined />}
+                  options={workers.map((w) => ({
+                    label: w.name,
+                    value: w.worker_id,
+                  }))}
+                />
+              </Form.Item>
+            )}
+
             <Form.Item
               label="Username"
               name="username"

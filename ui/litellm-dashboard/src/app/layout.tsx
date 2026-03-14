@@ -4,6 +4,7 @@ import "./globals.css";
 
 import AntdGlobalProvider from "@/contexts/AntdGlobalProvider";
 import ReactQueryProvider from "@/contexts/ReactQueryProvider";
+import { WorkerProvider } from "@/contexts/WorkerContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,7 +23,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <ReactQueryProvider>
-          <AntdGlobalProvider>{children}</AntdGlobalProvider>
+          <WorkerProvider>
+            <AntdGlobalProvider>{children}</AntdGlobalProvider>
+          </WorkerProvider>
         </ReactQueryProvider>
       </body>
     </html>

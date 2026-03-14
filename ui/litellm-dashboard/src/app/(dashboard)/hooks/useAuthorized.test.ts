@@ -58,6 +58,7 @@ vi.mock("@/utils/returnUrlUtils", async (importOriginal) => {
     storeReturnUrl: vi.fn(),
   };
 });
+
 const createQueryClient = () =>
   new QueryClient({
     defaultOptions: {
